@@ -11,7 +11,7 @@ def render(todo):
 
 def todo_input():
     return Input(
-        placeholder="Add a new todo", id="title", hx_swap_oob="true", required="true"
+        placeholder="Add a new todo", id="title", hx_swap_oob="true", required=""
     )
 
 
@@ -39,13 +39,13 @@ def get(tid: int):
     todo = todos[tid]
     return Form(
         Group(
-            Input(id="title", required="true", value=todo.title),
-            Button("Update", hx_put=f"/todo/{tid}"),
-            Button("Delete", hx_delete=f"/todo/{tid}", hx_params="none"),
-            Button("Cancel", hx_get=f"/todo/{tid}", cls="secondary"),
-            target_id=f"todo-{tid}",
+            Input(id="title", required="", value=todo.title),
+            Button("Update"),
+            Button("Delete", hx_delete=f"/todo/{tid}", hx_params="none", target_id=f"todo-{tid}"),
+            Button("Cancel", hx_get=f"/todo/{tid}", cls="secondary", target_id=f"todo-{tid}"),
             style="margin-top: var(--pico-spacing)",
-        )
+        ),
+        hx_put=f"/todo/{tid}",
     )
 
 
@@ -59,7 +59,6 @@ def get(tid: int):
 def put(tid: int, title: str):
     todo = todos[tid]
     todo.title = title
-    print(todo)
     return todos.update(todo)
 
 
