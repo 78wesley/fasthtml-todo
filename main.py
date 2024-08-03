@@ -64,7 +64,7 @@ def put(tid: int, title: str):
 
 
 @route("/todo")
-def post(todo: Todo):
+def post(todo: Todo): # type: ignore
     return todos.insert(todo), todo_input()
 
 
