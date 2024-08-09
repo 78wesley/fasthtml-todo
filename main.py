@@ -14,11 +14,15 @@ def todo_input():
         placeholder="Add a new todo", id="title", hx_swap_oob="true", required=""
     )
 
+def head():
+    return (Script(src='https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/js/adminlte.min.js'),
+Link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/css/adminlte.min.css'))
 
 app, route, todos, Todo = fast_app(
-    db="todos.db", live=True, render=render, id=int, title=str, done=bool, pk="id"
+    db="todos.db", live=True, render=render, id=int, title=str, done=bool, pk="id", pico=False, hdrs=head()
 )
 
+import first as fr
 
 @route("/")
 def get():
@@ -29,9 +33,10 @@ def get():
         hx_swap="beforeend",
     )
 
-    return Titled(
-        "Todos", Card(Ul(*todos(), id="todo-list", hx_swap="outerHTML"), header=form)
-    )
+    return fr.first()
+    # return Titled(
+    #     "Todos", Card(Ul(*todos(), id="todo-list", hx_swap="outerHTML"), header=form)
+    # )
 
 
 @route("/todo/{tid}/edit")
