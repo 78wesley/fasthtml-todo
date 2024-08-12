@@ -19,7 +19,7 @@ def head():
 Link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/css/adminlte.min.css'))
 
 app, route, todos, Todo = fast_app(
-    db="todos.db", live=True, render=render, id=int, title=str, done=bool, pk="id", pico=False, hdrs=head()
+    db_file="todos.db", live=True, render=render, id=int, title=str, done=bool, pk="id", pico=False, hdrs=head()
 )
 
 import first as fr
