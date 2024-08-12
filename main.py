@@ -82,26 +82,31 @@ def logout(sess):
     return login_redir
 
 
-@patch
-def __ft__(self: Todo):
+def render(self):
     tid = f"todo-{self.id}"
     toggle = A("Toggle", hx_post=f"/todo/{self.id}/toggle", target_id=tid)
     edit = A("Edit", hx_get=f"/todo/{self.id}/edit", hx_swap="this", target_id=tid)
     text = Span(self.title)
-    return Li(Span("✅" if self.done else "❌"), toggle, edit, text, id=tid)
+    hidden = Hidden(id="id", value=self.id), Hidden(id="priority", value="0")
+    return Li(Span("✅" if self.done else "❌"), toggle, edit, text, hidden, id=tid)
+
+
+@patch
+def __ft__(self: Todo):  # type: ignore
+    return render(self)
 
 
 @route("/")
 def get(auth):
     title = f"{auth}'s Todo list"
     top = Grid(H1(title), Div(A("Logout", href="/logout", role="button", cls="secondary"), style="text-align: right"))
-    form = Form(
+    form_add = Form(
         Group(todo_input(), Button("Add")),
         hx_post="/todo",
         target_id="todo-list",
-        hx_swap="beforeend",
+        hx_swap="afterbegin",
     )
-    card = Card(Ul(*todos(order_by="priority"), id="todo-list", cls="sortable", hx_swap="outerHTML"), header=form)
+    card = Card(Ul(Form(*todos(order_by="priority"), id="todo-list", cls="sortable", hx_post="/reorder", hx_trigger="end")), header=form_add)
 
     return Title(title), Container(top, card)
 
@@ -113,12 +118,19 @@ def get(tid: int):
         Group(
             Input(id="title", required="", value=todo.title),
             Button("Update"),
-            Button("Delete", hx_delete=f"/todo/{tid}", hx_params="none", target_id=f"todo-{tid}"),
+            Button("Delete", hx_delete=f"/todo/{tid}", hx_params="none", target_id=f"todo-{tid}", hx_swap="outerHTML"),
             Button("Cancel", hx_get=f"/todo/{tid}", cls="secondary", target_id=f"todo-{tid}"),
             style="margin-top: var(--pico-spacing)",
         ),
         hx_put=f"/todo/{tid}",
     )
+
+
+@route("/reorder")
+def post(id: list[int]):
+    for i, id_ in enumerate(id):
+        todos.update({"priority": i}, id_)
+    return tuple(todos(order_by="priority"))
 
 
 @route("/todo/{tid}")
