@@ -1,42 +1,109 @@
 from fasthtml.common import *
-
-
-def render(todo):
-    tid = f"todo-{todo.id}"
-    toggle = A("Toggle", hx_post=f"/todo/{todo.id}/toggle", target_id=tid)
-    edit = A("Edit", hx_get=f"/todo/{todo.id}/edit", hx_swap="this", target_id=tid)
-    text = Span(todo.title)
-    return Li(Span("✅" if todo.done else "❌"), toggle, edit, text, id=tid)
+import first as fr
+from hmac import compare_digest
 
 
 def todo_input():
-    return Input(
-        placeholder="Add a new todo", id="title", hx_swap_oob="true", required=""
-    )
+    return Input(placeholder="Add a new todo", id="title", hx_swap_oob="true", required="")
+
 
 def head():
-    return (Script(src='https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/js/adminlte.min.js'),
-Link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/css/adminlte.min.css'))
+    return (
+        Meta(name="color-scheme", content="dark"),
+        # Script(src="https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/js/adminlte.min.js"),
+        # Link(rel="stylesheet", href="https://cdn.jsdelivr.net/npm/admin-lte@3.1/dist/css/adminlte.min.css"),
+        SortableJS(".sortable"),
+        picolink,
+    )
 
-app, route, todos, Todo = fast_app(
-    db_file="todos.db", live=True, render=render, id=int, title=str, done=bool, pk="id", pico=False, hdrs=head()
-)
 
-import first as fr
+login_redir = RedirectResponse("/login", status_code=303)
+
+
+def before(req, sess):
+    auth = req.scope["auth"] = sess.get("auth", None)
+    if not auth:
+        return login_redir
+    todos.xtra(name=auth)
+
+
+db = database("todos.db")
+todos, users = db.t.todos, db.t.users
+if todos not in db.t:
+    users.create(dict(name=str, pwd=str), pk="name")
+    todos.create(id=int, title=str, done=bool, name=str, details=str, priority=int, pk="id")
+Todo, User = todos.dataclass(), users.dataclass()
+
+
+def _not_found(req, exc):
+    return Titled("Oh no!", Div("We could not find that page :("))
+
+
+beforeware = Beforeware(before, skip=[r"/favicon\.ico", "/login"])
+app = FastHTML(before=beforeware, exception_handlers={404: _not_found}, live=True, hdrs=head())
+route = app.route
+
+
+@route("/login")
+def get():
+    form = Form(
+        Input(id="name", placeholder="Name"),
+        Input(id="pwd", type="password", placeholder="Password"),
+        Button("Login"),
+        action="/login",
+        method="post",
+    )
+    return Titled("Login", (Div(form)))
+
+
+@dataclass
+class Login:
+    name: str
+    pwd: str
+
+
+@route("/login")
+def post(login: Login, sess):
+    if not login.name or not login.pwd:
+        return login_redir
+    try:
+        u = users[login.name]
+    except NotFoundError:
+        u = users.insert(login)
+    if not compare_digest(u.pwd.encode("utf-8"), login.pwd.encode("utf-8")):
+        return login_redir
+    sess["auth"] = u.name
+    return RedirectResponse("/", status_code=303)
+
+
+@app.get("/logout")
+def logout(sess):
+    del sess["auth"]
+    return login_redir
+
+
+@patch
+def __ft__(self: Todo):
+    tid = f"todo-{self.id}"
+    toggle = A("Toggle", hx_post=f"/todo/{self.id}/toggle", target_id=tid)
+    edit = A("Edit", hx_get=f"/todo/{self.id}/edit", hx_swap="this", target_id=tid)
+    text = Span(self.title)
+    return Li(Span("✅" if self.done else "❌"), toggle, edit, text, id=tid)
+
 
 @route("/")
-def get():
+def get(auth):
+    title = f"{auth}'s Todo list"
+    top = Grid(H1(title), Div(A("Logout", href="/logout", role="button", cls="secondary"), style="text-align: right"))
     form = Form(
         Group(todo_input(), Button("Add")),
         hx_post="/todo",
         target_id="todo-list",
         hx_swap="beforeend",
     )
+    card = Card(Ul(*todos(order_by="priority"), id="todo-list", cls="sortable", hx_swap="outerHTML"), header=form)
 
-    return fr.first()
-    # return Titled(
-    #     "Todos", Card(Ul(*todos(), id="todo-list", hx_swap="outerHTML"), header=form)
-    # )
+    return Title(title), Container(top, card)
 
 
 @route("/todo/{tid}/edit")
@@ -68,7 +135,7 @@ def put(tid: int, title: str):
 
 
 @route("/todo")
-def post(todo: Todo): # type: ignore
+def post(todo: Todo):  # type: ignore
     return todos.insert(todo), todo_input()
 
 
