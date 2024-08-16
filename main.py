@@ -35,12 +35,17 @@ if todos not in db.t:
 Todo, User = todos.dataclass(), users.dataclass()
 
 
-def _not_found(req, exc):
-    return Titled("Oh no!", Div("We could not find that page :("))
+# TODO This needs to be way better, now every failed request will get this response
+def _not_found(req: dict, exc):
+    if req.headers.get("hx-request"):
+        print("HX request")
+    else:
+        print("Non HX request")
+    return Titled("404 Not found", Div("Oh no! We could not find that page :("))
 
 
 beforeware = Beforeware(before, skip=[r"/favicon\.ico", "/login"])
-app = FastHTML(before=beforeware, exception_handlers={404: _not_found}, live=True, hdrs=head())
+app = FastHTML(before=beforeware, exception_handlers={404: _not_found}, hdrs=head())
 route = app.route
 
 
